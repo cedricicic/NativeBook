@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { NativeBookProvider } from './nativebook';
+import DemoScreen from './DemoScreen';
 import './src/stories';
 
 const logoImg = require('./src/assets/logo.png');
@@ -54,6 +55,7 @@ const STEPS = [
 function AppContent() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showTutorial, setShowTutorial] = React.useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const [currentStep, setCurrentStep] = React.useState(0);
   const stepAnim = useRef(new Animated.Value(1)).current;
 
@@ -104,9 +106,10 @@ function AppContent() {
     if (currentStep < STEPS.length - 1) {
       goToStep(currentStep + 1);
     } else {
-      closeTutorial();
+      // "Done" — transition to the demo sign-in screen
+      setShowDemo(true);
     }
-  }, [currentStep, goToStep, closeTutorial]);
+  }, [currentStep, goToStep]);
 
   const prevStep = useCallback(() => {
     if (currentStep > 0) {
@@ -130,6 +133,10 @@ function AppContent() {
     inputRange: [0, 1],
     outputRange: [20, 0],
   });
+
+  if (showDemo) {
+    return <DemoScreen />;
+  }
 
   return (
     <View style={styles.root}>
