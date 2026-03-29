@@ -14,13 +14,14 @@ import { NativeBookOverlay } from './Overlay';
 
 interface NativeBookProviderProps {
   children: React.ReactNode;
+  showTrigger?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_COLUMNS = 14;
 const GRID_ROWS = 24;
 
-export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children }) => {
+export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children, showTrigger = true }) => {
   const { isOpen, setIsOpen, selectedComponent, components, knobs } = useNativeBookStore();
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
@@ -109,7 +110,7 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
         )}
 
         {/* Floating Trigger Button */}
-        {!isOpen && (
+        {showTrigger && !isOpen && (
           <Animated.View
             style={[styles.trigger, { transform: pan.getTranslateTransform() }]}
             {...panResponder.panHandlers}
