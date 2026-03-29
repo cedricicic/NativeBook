@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Image,
   LayoutChangeEvent,
   PanResponder,
   Pressable,
@@ -17,7 +18,7 @@ interface NativeBookProviderProps {
   showTrigger?: boolean;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_COLUMNS = 14;
 const GRID_ROWS = 24;
 
@@ -25,8 +26,8 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   const { isOpen, setIsOpen, selectedComponent, components, knobs } = useNativeBookStore();
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
-  const pan = useRef(new Animated.ValueXY({ x: 20, y: 100 })).current;
-  const dragStart = useRef({ x: 20, y: 100 });
+  const pan = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH - 76, y: SCREEN_HEIGHT - 140 })).current;
+  const dragStart = useRef({ x: SCREEN_WIDTH - 76, y: SCREEN_HEIGHT - 140 });
 
   const panResponder = useRef(
     PanResponder.create({
@@ -110,13 +111,17 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
         )}
 
         {/* Floating Trigger Button */}
-        {showTrigger && !isOpen && (
+        {(showTrigger || selectedComponent) && !isOpen && (
           <Animated.View
             style={[styles.trigger, { transform: pan.getTranslateTransform() }]}
             {...panResponder.panHandlers}
           >
             <Pressable style={styles.triggerInner} onPress={() => setIsOpen(true)}>
-              <Text style={styles.triggerGlyph}>NB</Text>
+              <Image
+                source={require('../src/assets/logo.png')}
+                style={styles.triggerLogo}
+                resizeMode="contain"
+              />
             </Pressable>
           </Animated.View>
         )}
@@ -138,25 +143,19 @@ const styles = StyleSheet.create({
   },
   trigger: {
     position: 'absolute',
-    top: 36,
-    left: 16,
+    top: 0,
+    left: 0,
     zIndex: 1001,
   },
   triggerInner: {
-    minWidth: 52,
-    height: 36,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EAEAEA',
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
   },
-  triggerGlyph: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 0.24,
+  triggerLogo: {
+    width: 56,
+    height: 56,
   },
   previewContainer: {
     flex: 1,

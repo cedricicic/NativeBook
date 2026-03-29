@@ -107,9 +107,9 @@ export const NativeBookOverlay = () => {
         <Text style={styles.knobLabel}>LABEL (STRING)</Text>
         <TextInput
           style={styles.knobInput}
-          value={knobs.label || 'Submit'}
+          value={knobs.label || ''}
           onChangeText={(text) => updateKnob('label', text)}
-          placeholder="Submit"
+          placeholder="Enter label text"
           placeholderTextColor="#888888"
           selectionColor="#000000"
           cursorColor="#000000"
@@ -117,26 +117,16 @@ export const NativeBookOverlay = () => {
       </View>
 
       <View style={styles.knobRow}>
-        <Text style={styles.knobLabel}>VARIANT (ENUM)</Text>
-        <View style={styles.radioGroup}>
-          {['primary', 'secondary', 'outline'].map((variant) => {
-            const active = (knobs.variant || 'primary') === variant;
-            return (
-              <TouchableOpacity
-                key={variant}
-                style={styles.radioOption}
-                onPress={() => updateKnob('variant', variant)}
-              >
-                <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
-                  {active ? <View style={styles.radioInner} /> : null}
-                </View>
-                <Text style={styles.radioLabel}>
-                  {variant === 'outline' ? 'Link' : `${variant[0].toUpperCase()}${variant.slice(1)}`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <Text style={styles.knobLabel}>PLACEHOLDER (STRING)</Text>
+        <TextInput
+          style={styles.knobInput}
+          value={knobs.placeholder || ''}
+          onChangeText={(text) => updateKnob('placeholder', text)}
+          placeholder="Enter placeholder text"
+          placeholderTextColor="#888888"
+          selectionColor="#000000"
+          cursorColor="#000000"
+        />
       </View>
 
       <View style={styles.knobRow}>

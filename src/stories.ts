@@ -5,4 +5,4 @@
  */
 
 // Import all story files here
-require('./components/Button.stories');
+require('./components/Auth.stories');

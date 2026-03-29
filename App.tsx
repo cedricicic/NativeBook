@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Easing,
 } from 'react-native';
 import { NativeBookProvider } from './nativebook';
 import DemoScreen from './DemoScreen';
@@ -58,6 +59,7 @@ function AppContent() {
   const [showDemo, setShowDemo] = useState(false);
   const [currentStep, setCurrentStep] = React.useState(0);
   const stepAnim = useRef(new Animated.Value(1)).current;
+  const demoSlideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   const openTutorial = useCallback(() => {
     setShowTutorial(true);
@@ -134,8 +136,30 @@ function AppContent() {
     outputRange: [20, 0],
   });
 
+  useEffect(() => {
+    if (showDemo) {
+      Animated.timing(demoSlideAnim, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showDemo, demoSlideAnim]);
+
   if (showDemo) {
-    return <DemoScreen />;
+    return (
+      <View style={styles.root}>
+        <Animated.View
+          style={[
+            styles.page,
+            { transform: [{ translateX: demoSlideAnim }] },
+          ]}
+        >
+          <DemoScreen />
+        </Animated.View>
+      </View>
+    );
   }
 
   return (
