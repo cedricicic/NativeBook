@@ -82,7 +82,7 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        {selectedComponent ? (
+        {selectedComponent && showTrigger ? (
           <View style={styles.previewContainer}>
             <View style={styles.gridBackground} pointerEvents="none">
               {Array.from({ length: GRID_ROWS }).map((_, rowIndex) => (

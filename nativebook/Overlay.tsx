@@ -16,7 +16,7 @@ import { useNativeBookStore } from './store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const OVERLAY_HEIGHT = SCREEN_HEIGHT * 0.88;
+const OVERLAY_HEIGHT = SCREEN_HEIGHT * 0.80;
 const TABS = ['props', 'events', 'docs'] as const;
 
 type TabKey = (typeof TABS)[number];
@@ -41,29 +41,59 @@ export const NativeBookOverlay = () => {
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const contentFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: isOpen ? SCREEN_HEIGHT - OVERLAY_HEIGHT : SCREEN_HEIGHT,
-        duration: 150,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: isOpen ? 1 : 0,
-        duration: 150,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (isOpen) {
+      // Opening: spring for natural bounce
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: SCREEN_HEIGHT - OVERLAY_HEIGHT,
+          useNativeDriver: true,
+          damping: 28,
+          stiffness: 220,
+          mass: 0.9,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Closing: smooth ease-out
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: SCREEN_HEIGHT,
+          useNativeDriver: true,
+          damping: 26,
+          stiffness: 200,
+          mass: 0.85,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   }, [isOpen, opacity, translateY]);
 
   useEffect(() => {
     if (!selectedComponent) {
       setActiveTab('props');
     }
-  }, [selectedComponent]);
+    // Animate content swap
+    contentFade.setValue(0);
+    Animated.timing(contentFade, {
+      toValue: 1,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [selectedComponent, contentFade]);
 
   const componentNames = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -110,9 +140,9 @@ export const NativeBookOverlay = () => {
           value={knobs.label || ''}
           onChangeText={(text) => updateKnob('label', text)}
           placeholder="Enter label text"
-          placeholderTextColor="#888888"
-          selectionColor="#000000"
-          cursorColor="#000000"
+          placeholderTextColor="#555555"
+          selectionColor="#FFFFFF"
+          cursorColor="#FFFFFF"
         />
       </View>
 
@@ -123,9 +153,9 @@ export const NativeBookOverlay = () => {
           value={knobs.placeholder || ''}
           onChangeText={(text) => updateKnob('placeholder', text)}
           placeholder="Enter placeholder text"
-          placeholderTextColor="#888888"
-          selectionColor="#000000"
-          cursorColor="#000000"
+          placeholderTextColor="#555555"
+          selectionColor="#FFFFFF"
+          cursorColor="#FFFFFF"
         />
       </View>
 
@@ -135,6 +165,7 @@ export const NativeBookOverlay = () => {
           style={[styles.toggleButton, knobs.disabled && styles.toggleButtonActive]}
           onPress={() => updateKnob('disabled', !knobs.disabled)}
         >
+          <View style={styles.toggleGlass} />
           <Text style={[styles.toggleButtonText, knobs.disabled && styles.toggleButtonTextActive]}>
             {knobs.disabled ? 'Enabled: Off' : 'Enabled: On'}
           </Text>
@@ -177,9 +208,12 @@ export const NativeBookOverlay = () => {
         {selectedComponent ? (
           <TouchableOpacity
             style={styles.sheetBackButton}
-            onPress={() => setSelectedComponent(null)}
+            onPress={() => {
+              setSelectedComponent(null);
+              setIsOpen(false);
+            }}
           >
-            <Text style={styles.sheetBackButtonText}>‹ Back to Explorer</Text>
+            <Text style={styles.sheetBackButtonText}>‹ Back to Storyboard</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -187,92 +221,96 @@ export const NativeBookOverlay = () => {
           <View style={styles.searchContainer}>
             <TextInput
               placeholder="Search Components..."
-              placeholderTextColor="#888888"
+              placeholderTextColor="#555555"
               style={styles.searchInput}
               value={query}
               onChangeText={setQuery}
-              selectionColor="#000000"
-              cursorColor="#000000"
+              selectionColor="#FFFFFF"
+              cursorColor="#FFFFFF"
             />
           </View>
-          <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>X</Text>
-          </TouchableOpacity>
+          <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton}>
+            <View style={styles.closeButtonGlass} />
+            <Text style={styles.closeButtonText}>✕</Text>
+          </Pressable>
         </View>
 
-        {!selectedComponent ? (
-          <View style={styles.content}>
-            <FlatList
-              data={groupedComponents}
-              keyExtractor={([section]) => section}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              renderItem={({ item }) => (
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>{item[0]}</Text>
-                  {item[1].map((componentName) => (
-                    <View key={componentName}>
-                      {renderComponentItem({ item: componentName })}
-                    </View>
-                  ))}
+        <Animated.View style={[styles.animatedContent, { opacity: contentFade }]}>
+          {!selectedComponent ? (
+            <View style={styles.content}>
+              <FlatList
+                data={groupedComponents}
+                keyExtractor={([section]) => section}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                renderItem={({ item }) => (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>{item[0]}</Text>
+                    {item[1].map((componentName) => (
+                      <View key={componentName}>
+                        {renderComponentItem({ item: componentName })}
+                      </View>
+                    ))}
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No components found.</Text>
+                    <Text style={styles.emptySubText}>
+                      Add a .stories file to get started.
+                    </Text>
+                  </View>
+                }
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              />
+            </View>
+          ) : (
+            <View style={styles.panel}>
+              <ScrollView
+                style={styles.panelScroll}
+                contentContainerStyle={styles.panelScrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.panelHeader}>
+                  <Text style={styles.panelTitle}>{selectedComponent}</Text>
+                  <Text style={styles.panelMeta}>ACTIVE STORY</Text>
                 </View>
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No components found.</Text>
-                  <Text style={styles.emptySubText}>
-                    Add a .stories file to get started.
-                  </Text>
+
+                <View style={styles.tabBar}>
+                  {TABS.map((tab) => {
+                    const active = activeTab === tab;
+                    return (
+                      <TouchableOpacity
+                        key={tab}
+                        style={[styles.tabButton, active && styles.tabButtonActive]}
+                        onPress={() => setActiveTab(tab)}
+                      >
+                        <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                          {tab.toUpperCase()}
+                        </Text>
+                        {active && <View style={styles.tabActiveIndicator} />}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              }
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            />
-          </View>
-        ) : (
-          <View style={styles.panel}>
-            <ScrollView
-              style={styles.panelScroll}
-              contentContainerStyle={styles.panelScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.panelHeader}>
-                <Text style={styles.panelTitle}>{selectedComponent}</Text>
-                <Text style={styles.panelMeta}>ACTIVE STORY</Text>
-              </View>
 
-              <View style={styles.tabBar}>
-                {TABS.map((tab) => {
-                  const active = activeTab === tab;
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[styles.tabButton, active && styles.tabButtonActive]}
-                      onPress={() => setActiveTab(tab)}
-                    >
-                      <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                        {tab.toUpperCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {activeTab === 'props'
-                ? renderPropsTab()
-                : activeTab === 'events'
-                  ? renderPlaceholder(
-                      'No Events Wired',
-                      'Event logging can surface press, focus, and change callbacks here.'
-                    )
-                  : renderPlaceholder(
-                      'Docs Pending',
-                      'Docgen output can populate prop descriptions and usage notes in this tab.'
-                    )}
-            </ScrollView>
-          </View>
-        )}
+                {activeTab === 'props'
+                  ? renderPropsTab()
+                  : activeTab === 'events'
+                    ? renderPlaceholder(
+                        'No Events Wired',
+                        'Event logging can surface press, focus, and change callbacks here.'
+                      )
+                    : renderPlaceholder(
+                        'Docs Pending',
+                        'Docgen output can populate prop descriptions and usage notes in this tab.'
+                      )}
+              </ScrollView>
+            </View>
+          )}
+        </Animated.View>
       </Animated.View>
     </>
   );
@@ -281,7 +319,7 @@ export const NativeBookOverlay = () => {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     zIndex: 999,
   },
   backdropPressable: {
@@ -293,23 +331,25 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: OVERLAY_HEIGHT,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#EAEAEA',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomWidth: 0,
     zIndex: 1000,
     paddingHorizontal: 18,
     paddingBottom: 18,
   },
   handleContainer: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   handle: {
     width: 44,
-    height: 3,
-    backgroundColor: '#EAEAEA',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   searchRow: {
     flexDirection: 'row',
@@ -319,39 +359,56 @@ const styles = StyleSheet.create({
   sheetBackButton: {
     alignSelf: 'flex-start',
     marginBottom: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   sheetBackButtonText: {
     color: '#888888',
-    fontSize: 12,
-    letterSpacing: 0.24,
+    fontSize: 13,
+    letterSpacing: 0.2,
   },
   searchContainer: {
     flex: 1,
     height: 44,
     borderWidth: 1,
-    borderColor: '#EAEAEA',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     marginRight: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   searchInput: {
-    color: '#000000',
-    fontSize: 16,
-    letterSpacing: -0.32,
+    color: '#FFFFFF',
+    fontSize: 15,
+    letterSpacing: -0.3,
   },
   closeButton: {
     width: 44,
     height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EAEAEA',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  closeButtonGlass: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
   closeButtonText: {
-    color: '#000000',
-    fontSize: 12,
+    color: '#AAAAAA',
+    fontSize: 14,
     fontWeight: '500',
-    letterSpacing: 0.24,
+  },
+  animatedContent: {
+    flex: 1,
+    minHeight: 0,
   },
   content: {
     flex: 1,
@@ -364,26 +421,26 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 22,
   },
   sectionLabel: {
-    color: '#888888',
-    fontSize: 12,
-    fontWeight: '400',
-    letterSpacing: 0.24,
-    marginBottom: 6,
+    color: '#666666',
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 1,
+    marginBottom: 8,
   },
   componentItem: {
     minHeight: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   componentItemPressed: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   itemRail: {
     position: 'absolute',
@@ -391,18 +448,19 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 2,
-    backgroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
+    opacity: 0.25,
   },
   itemArrow: {
-    color: '#000000',
-    fontSize: 14,
+    color: '#888888',
+    fontSize: 16,
     marginRight: 10,
   },
   itemText: {
-    color: '#000000',
+    color: '#EEEEEE',
     fontSize: 16,
     fontWeight: '500',
-    letterSpacing: -0.32,
+    letterSpacing: -0.3,
   },
   emptyContainer: {
     flex: 1,
@@ -411,64 +469,74 @@ const styles = StyleSheet.create({
     paddingTop: 80,
   },
   emptyText: {
-    color: '#000000',
+    color: '#AAAAAA',
     fontSize: 16,
     fontWeight: '300',
-    letterSpacing: -0.32,
-    marginBottom: 6,
+    letterSpacing: -0.3,
+    marginBottom: 8,
   },
   emptySubText: {
-    color: '#888888',
+    color: '#555555',
     fontSize: 12,
-    letterSpacing: 0.24,
+    letterSpacing: 0.3,
   },
   panel: {
     flex: 1,
     minHeight: 0,
   },
   panelHeader: {
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   panelTitle: {
-    color: '#000000',
-    fontSize: 24,
+    color: '#FFFFFF',
+    fontSize: 26,
     fontWeight: '700',
-    letterSpacing: -0.96,
+    letterSpacing: -1,
     marginBottom: 4,
   },
   panelMeta: {
-    color: '#888888',
+    color: '#555555',
     fontSize: 10,
-    letterSpacing: 0.5,
+    letterSpacing: 1.5,
+    fontWeight: '500',
   },
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   tabButton: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#EAEAEA',
+    position: 'relative',
   },
   tabButtonActive: {
-    backgroundColor: '#FAFAFA',
+    // active state handled by indicator below
   },
   tabText: {
-    color: '#888888',
+    color: '#555555',
     fontSize: 12,
-    letterSpacing: 0.24,
+    letterSpacing: 0.5,
+    fontWeight: '500',
   },
   tabTextActive: {
-    color: '#000000',
+    color: '#FFFFFF',
+  },
+  tabActiveIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '20%',
+    right: '20%',
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
   },
   panelBody: {
-    paddingTop: 18,
+    paddingTop: 20,
   },
   panelScroll: {
     flex: 1,
@@ -480,20 +548,22 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   knobLabel: {
-    color: '#888888',
+    color: '#666666',
     fontSize: 10,
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    fontWeight: '500',
     marginBottom: 8,
   },
   knobInput: {
     height: 46,
     borderWidth: 1,
-    borderColor: '#000000',
-    color: '#000000',
-    paddingHorizontal: 12,
-    fontSize: 16,
-    letterSpacing: -0.32,
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    paddingHorizontal: 14,
+    fontSize: 15,
+    letterSpacing: -0.3,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   radioGroup: {
     flexDirection: 'row',
@@ -511,44 +581,54 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterActive: {
-    borderColor: '#5C5C5C',
+    borderColor: '#FFFFFF',
   },
   radioInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#5C5C5C',
-  },
-  radioLabel: {
-    color: '#000000',
-    fontSize: 12,
-    letterSpacing: 0.24,
-  },
-  toggleButton: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
+  radioLabel: {
+    color: '#CCCCCC',
+    fontSize: 12,
+    letterSpacing: 0.2,
+  },
+  toggleButton: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  toggleGlass: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
   toggleButtonActive: {
-    backgroundColor: '#F2F2F2',
-    borderColor: '#888888',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   toggleButtonText: {
-    color: '#000000',
+    color: '#AAAAAA',
     fontSize: 12,
-    letterSpacing: 0.24,
+    letterSpacing: 0.3,
+    fontWeight: '500',
   },
   toggleButtonTextActive: {
-    color: '#000000',
+    color: '#FFFFFF',
   },
   placeholderPanel: {
     flex: 1,
@@ -558,17 +638,17 @@ const styles = StyleSheet.create({
     paddingTop: 56,
   },
   placeholderTitle: {
-    color: '#000000',
+    color: '#CCCCCC',
     fontSize: 16,
-    fontWeight: '500',
-    letterSpacing: -0.32,
-    marginBottom: 8,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    marginBottom: 10,
   },
   placeholderText: {
-    color: '#888888',
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 0.24,
+    color: '#555555',
+    fontSize: 13,
+    lineHeight: 20,
+    letterSpacing: 0.1,
     textAlign: 'center',
   },
 });
