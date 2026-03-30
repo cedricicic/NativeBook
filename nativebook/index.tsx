@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -23,7 +23,7 @@ const GRID_COLUMNS = 14;
 const GRID_ROWS = 24;
 
 export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children, showTrigger = true }) => {
-  const { isOpen, setIsOpen, selectedComponent, components, knobs } = useNativeBookStore();
+  const { isOpen, setIsOpen, selectedComponent, setSelectedComponent, components, knobs } = useNativeBookStore();
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
   const pan = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH - 76, y: SCREEN_HEIGHT - 140 })).current;
@@ -61,15 +61,14 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
     })
   ).current;
 
-  const PreviewComponent = useMemo(() => {
+  const PreviewComponent = (() => {
     if (!selectedComponent) return null;
     const item = components[selectedComponent];
     if (!item) return null;
     
     const Component = item.component;
-    // Spread knobs to the component
     return <Component {...knobs} />;
-  }, [selectedComponent, components, knobs]);
+  })();
 
   const onPreviewLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -96,6 +95,16 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
                 </View>
               ))}
             </View>
+
+            {/* Back Button */}
+            <Pressable 
+              style={styles.previewBackButton}
+              onPress={() => setSelectedComponent(null)}
+            >
+              <View style={styles.chevronGlass} />
+              <Text style={styles.backIcon}>‹</Text>
+            </Pressable>
+
             <View style={styles.previewFrame} onLayout={onPreviewLayout}>
               {PreviewComponent}
             </View>
@@ -132,9 +141,9 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   );
 };
 
-export const register = (name: string, component: any) => {
+export const register = (name: string, component: any, knobDefs?: Record<string, import('./store').KnobDefinition>) => {
   const { registerComponent } = useNativeBookStore.getState();
-  registerComponent(name, { component });
+  registerComponent(name, { component, knobDefs });
 };
 
 const styles = StyleSheet.create({
@@ -180,6 +189,35 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: '#F0F0F0',
   },
+  previewBackButton: {
+    position: 'absolute',
+    top: 64,
+    left: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  chevronGlass: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  backIcon: {
+    color: '#000000',
+    fontSize: 28,
+    fontWeight: '300',
+    marginRight: 2,
+    marginBottom: 4,
+  },
   previewFrame: {
     minWidth: '76%',
     minHeight: 120,
@@ -190,13 +228,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingVertical: 28,
+    borderRadius: 12,
   },
   previewLabel: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 36,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#EAEAEA',
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNativeBookStore } from './store';
+import { useNativeBookStore, KnobDefinition } from './store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,9 +43,15 @@ export const NativeBookOverlay = () => {
   const opacity = useRef(new Animated.Value(0)).current;
   const contentFade = useRef(new Animated.Value(1)).current;
 
+  // Get the knob definitions for the selected component
+  const knobDefs = useMemo(() => {
+    if (!selectedComponent) return null;
+    const registration = components[selectedComponent];
+    return registration?.knobDefs || null;
+  }, [selectedComponent, components]);
+
   useEffect(() => {
     if (isOpen) {
-      // Opening: spring for natural bounce
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: SCREEN_HEIGHT - OVERLAY_HEIGHT,
@@ -62,7 +68,6 @@ export const NativeBookOverlay = () => {
         }),
       ]).start();
     } else {
-      // Closing: smooth ease-out
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: SCREEN_HEIGHT,
@@ -85,7 +90,6 @@ export const NativeBookOverlay = () => {
     if (!selectedComponent) {
       setActiveTab('props');
     }
-    // Animate content swap
     contentFade.setValue(0);
     Animated.timing(contentFade, {
       toValue: 1,
@@ -123,7 +127,10 @@ export const NativeBookOverlay = () => {
         styles.componentItem,
         pressed && styles.componentItemPressed,
       ]}
-      onPress={() => setSelectedComponent(item)}
+      onPress={() => {
+        setSelectedComponent(item);
+        setIsOpen(false);
+      }}
     >
       <View style={styles.itemRail} />
       <Text style={styles.itemArrow}>›</Text>
@@ -131,45 +138,164 @@ export const NativeBookOverlay = () => {
     </Pressable>
   );
 
-  const renderPropsTab = () => (
-    <View style={styles.panelBody}>
-      <View style={styles.knobRow}>
-        <Text style={styles.knobLabel}>LABEL (STRING)</Text>
-        <TextInput
-          style={styles.knobInput}
-          value={knobs.label || ''}
-          onChangeText={(text) => updateKnob('label', text)}
-          placeholder="Enter label text"
-          placeholderTextColor="#555555"
-          selectionColor="#FFFFFF"
-          cursorColor="#FFFFFF"
-        />
-      </View>
+  // ─── Dynamic Knob Renderers ───
 
-      <View style={styles.knobRow}>
-        <Text style={styles.knobLabel}>PLACEHOLDER (STRING)</Text>
-        <TextInput
-          style={styles.knobInput}
-          value={knobs.placeholder || ''}
-          onChangeText={(text) => updateKnob('placeholder', text)}
-          placeholder="Enter placeholder text"
-          placeholderTextColor="#555555"
-          selectionColor="#FFFFFF"
-          cursorColor="#FFFFFF"
-        />
-      </View>
+  const renderTextKnob = (key: string, def: KnobDefinition) => (
+    <View style={styles.knobRow} key={key}>
+      <Text style={styles.knobLabel}>
+        {def.label.toUpperCase()} <Text style={styles.knobType}>STRING</Text>
+      </Text>
+      <TextInput
+        style={styles.knobInput}
+        value={knobs[key]?.toString() || ''}
+        onChangeText={(text) => updateKnob(key, text)}
+        placeholder={`Enter ${def.label.toLowerCase()}`}
+        placeholderTextColor="#444444"
+        selectionColor="#FFFFFF"
+        cursorColor="#FFFFFF"
+      />
+    </View>
+  );
 
-      <View style={styles.knobRow}>
-        <Text style={styles.knobLabel}>DISABLED (BOOLEAN)</Text>
-        <TouchableOpacity
-          style={[styles.toggleButton, knobs.disabled && styles.toggleButtonActive]}
-          onPress={() => updateKnob('disabled', !knobs.disabled)}
-        >
-          <View style={styles.toggleGlass} />
-          <Text style={[styles.toggleButtonText, knobs.disabled && styles.toggleButtonTextActive]}>
-            {knobs.disabled ? 'Enabled: Off' : 'Enabled: On'}
+  const renderBooleanKnob = (key: string, def: KnobDefinition) => (
+    <View style={styles.knobRow} key={key}>
+      <Text style={styles.knobLabel}>
+        {def.label.toUpperCase()} <Text style={styles.knobType}>BOOLEAN</Text>
+      </Text>
+      <TouchableOpacity
+        style={[styles.toggleButton, knobs[key] && styles.toggleButtonActive]}
+        onPress={() => updateKnob(key, !knobs[key])}
+      >
+        <View style={styles.toggleGlass} />
+        <View style={styles.toggleRow}>
+          <View style={[styles.toggleDot, knobs[key] && styles.toggleDotActive]} />
+          <Text style={[styles.toggleButtonText, knobs[key] && styles.toggleButtonTextActive]}>
+            {knobs[key] ? 'true' : 'false'}
           </Text>
-        </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderSelectKnob = (key: string, def: KnobDefinition) => {
+    const options = def.options || [];
+    return (
+      <View style={styles.knobRow} key={key}>
+        <Text style={styles.knobLabel}>
+          {def.label.toUpperCase()} <Text style={styles.knobType}>ENUM</Text>
+        </Text>
+        <View style={styles.selectGroup}>
+          {options.map((option) => {
+            const isActive = knobs[key] === option;
+            return (
+              <Pressable
+                key={option}
+                style={[styles.selectOption, isActive && styles.selectOptionActive]}
+                onPress={() => updateKnob(key, option)}
+              >
+                <View style={styles.selectOptionGlass} />
+                <Text style={[styles.selectOptionText, isActive && styles.selectOptionTextActive]}>
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderKnobControl = (key: string, def: KnobDefinition) => {
+    switch (def.type) {
+      case 'text':
+        return renderTextKnob(key, def);
+      case 'boolean':
+        return renderBooleanKnob(key, def);
+      case 'select':
+        return renderSelectKnob(key, def);
+      default:
+        return null;
+    }
+  };
+
+  const renderPropsTab = () => {
+    if (!knobDefs || Object.keys(knobDefs).length === 0) {
+      return (
+        <View style={styles.placeholderPanel}>
+          <Text style={styles.placeholderTitle}>No Props Defined</Text>
+          <Text style={styles.placeholderText}>
+            Register knob definitions in your story to enable interactive controls.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.panelBody}>
+        {Object.entries(knobDefs).map(([key, def]) =>
+          renderKnobControl(key, def)
+        )}
+      </View>
+    );
+  };
+
+  const renderEventsTab = () => {
+    return (
+      <View style={styles.eventsPanel}>
+        <View style={styles.eventItem}>
+          <View style={styles.eventDot} />
+          <View style={styles.eventContent}>
+            <Text style={styles.eventName}>onPress</Text>
+            <Text style={styles.eventTime}>callback registered</Text>
+          </View>
+          <View style={styles.eventBadge}>
+            <Text style={styles.eventBadgeText}>0 calls</Text>
+          </View>
+        </View>
+        <View style={styles.eventItem}>
+          <View style={[styles.eventDot, styles.eventDotInactive]} />
+          <View style={styles.eventContent}>
+            <Text style={[styles.eventName, styles.eventNameInactive]}>onLongPress</Text>
+            <Text style={styles.eventTime}>not wired</Text>
+          </View>
+        </View>
+        <View style={styles.eventsHint}>
+          <Text style={styles.eventsHintText}>
+            Events are logged here as they fire. Interact with the component above to see callbacks in real time.
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderDocsTab = () => (
+    <View style={styles.docsPanel}>
+      <View style={styles.docBlock}>
+        <Text style={styles.docBlockTitle}>Component</Text>
+        <View style={styles.docCodeBlock}>
+          <Text style={styles.docCode}>
+            {'<'}{selectedComponent?.split(' ').pop() || 'Component'}{' '}
+            {knobDefs && Object.entries(knobDefs).map(([key, def]) => {
+              const val = knobs[key];
+              if (def.type === 'boolean') return val ? `${key} ` : '';
+              if (def.type === 'text') return `${key}="${val}" `;
+              return `${key}="${val}" `;
+            }).join('')}
+            {'/>'}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.docBlock}>
+        <Text style={styles.docBlockTitle}>Props Interface</Text>
+        {knobDefs && Object.entries(knobDefs).map(([key, def]) => (
+          <View key={key} style={styles.docPropRow}>
+            <Text style={styles.docPropName}>{key}</Text>
+            <Text style={styles.docPropType}>
+              {def.type === 'select' ? def.options?.map(o => `'${o}'`).join(' | ') : def.type === 'boolean' ? 'boolean' : 'string'}
+            </Text>
+            <Text style={styles.docPropDefault}>= {JSON.stringify(def.defaultValue)}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -204,7 +330,7 @@ export const NativeBookOverlay = () => {
         <View style={styles.handleContainer}>
           <View style={styles.handle} />
         </View>
-
+{/* 
         {selectedComponent ? (
           <TouchableOpacity
             style={styles.sheetBackButton}
@@ -213,9 +339,9 @@ export const NativeBookOverlay = () => {
               setIsOpen(false);
             }}
           >
-            <Text style={styles.sheetBackButtonText}>‹ Back to Storyboard</Text>
+            <Text style={styles.sheetBackButtonText}>‹ Back</Text>
           </TouchableOpacity>
-        ) : null}
+        ) : null} */}
 
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
@@ -299,14 +425,8 @@ export const NativeBookOverlay = () => {
                 {activeTab === 'props'
                   ? renderPropsTab()
                   : activeTab === 'events'
-                    ? renderPlaceholder(
-                        'No Events Wired',
-                        'Event logging can surface press, focus, and change callbacks here.'
-                      )
-                    : renderPlaceholder(
-                        'Docs Pending',
-                        'Docgen output can populate prop descriptions and usage notes in this tab.'
-                      )}
+                    ? renderEventsTab()
+                    : renderDocsTab()}
               </ScrollView>
             </View>
           )}
@@ -514,9 +634,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  tabButtonActive: {
-    // active state handled by indicator below
-  },
+  tabButtonActive: {},
   tabText: {
     color: '#555555',
     fontSize: 12,
@@ -548,11 +666,15 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   knobLabel: {
-    color: '#666666',
+    color: '#888888',
     fontSize: 10,
     letterSpacing: 1,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
+  },
+  knobType: {
+    color: '#444444',
+    fontWeight: '400',
   },
   knobInput: {
     height: 46,
@@ -565,45 +687,48 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  radioGroup: {
+
+  // ─── Select Knob ───
+  selectGroup: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     flexWrap: 'wrap',
-    rowGap: 12,
+    gap: 8,
   },
-  radioOption: {
-    width: '33%',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  radioOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  selectOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  radioOuterActive: {
-    borderColor: '#FFFFFF',
+  selectOptionActive: {
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
-  radioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+  selectOptionGlass: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
-  radioLabel: {
-    color: '#CCCCCC',
-    fontSize: 12,
-    letterSpacing: 0.2,
+  selectOptionText: {
+    color: '#777777',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
+  selectOptionTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // ─── Toggle Knob ───
   toggleButton: {
     height: 44,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -615,21 +740,156 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   toggleButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  toggleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#333333',
+    borderWidth: 1,
+    borderColor: '#555555',
+  },
+  toggleDotActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#22c55e',
   },
   toggleButtonText: {
-    color: '#AAAAAA',
-    fontSize: 12,
-    letterSpacing: 0.3,
+    color: '#777777',
+    fontSize: 13,
     fontWeight: '500',
+    letterSpacing: -0.2,
   },
   toggleButtonTextActive: {
     color: '#FFFFFF',
   },
+
+  // ─── Events Tab ───
+  eventsPanel: {
+    paddingTop: 16,
+  },
+  eventItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  eventDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16a34a',
+    marginRight: 12,
+  },
+  eventDotInactive: {
+    backgroundColor: '#333333',
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventName: {
+    color: '#EEEEEE',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  eventNameInactive: {
+    color: '#555555',
+  },
+  eventTime: {
+    color: '#555555',
+    fontSize: 11,
+    letterSpacing: 0.2,
+    marginTop: 2,
+  },
+  eventBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  eventBadgeText: {
+    color: '#888888',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  eventsHint: {
+    paddingTop: 20,
+    paddingHorizontal: 4,
+  },
+  eventsHintText: {
+    color: '#444444',
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 0.1,
+  },
+
+  // ─── Docs Tab ───
+  docsPanel: {
+    paddingTop: 16,
+  },
+  docBlock: {
+    marginBottom: 24,
+  },
+  docBlockTitle: {
+    color: '#888888',
+    fontSize: 10,
+    letterSpacing: 1,
+    fontWeight: '600',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  docCodeBlock: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    padding: 14,
+  },
+  docCode: {
+    color: '#CCCCCC',
+    fontSize: 13,
+    fontFamily: 'Courier',
+    lineHeight: 20,
+  },
+  docPropRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 8,
+  },
+  docPropName: {
+    color: '#EEEEEE',
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Courier',
+  },
+  docPropType: {
+    color: '#888888',
+    fontSize: 12,
+    fontFamily: 'Courier',
+    flex: 1,
+  },
+  docPropDefault: {
+    color: '#555555',
+    fontSize: 12,
+    fontFamily: 'Courier',
+  },
+
+  // ─── Placeholder ───
   placeholderPanel: {
     flex: 1,
     alignItems: 'center',
