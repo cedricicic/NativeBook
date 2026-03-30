@@ -8,12 +8,18 @@ import { AppleButton } from './AppleButton';
 // Register sign-in screen components for NativeBook discovery
 
 register('Auth Email Input', EmailInput, {
+  label: { type: 'text', label: 'Label', defaultValue: 'Email' },
   placeholder: { type: 'text', label: 'Placeholder', defaultValue: 'Enter your email' },
+  value: { type: 'text', label: 'Value', defaultValue: '' },
+  state: { type: 'select', label: 'State', defaultValue: 'idle', options: ['idle', 'focused', 'success', 'error'] },
   disabled: { type: 'boolean', label: 'Disabled', defaultValue: false },
 });
 
 register('Auth Password Input', PasswordInput, {
+  label: { type: 'text', label: 'Label', defaultValue: 'Password' },
   placeholder: { type: 'text', label: 'Placeholder', defaultValue: 'Enter your password' },
+  value: { type: 'text', label: 'Value', defaultValue: '' },
+  state: { type: 'select', label: 'State', defaultValue: 'idle', options: ['idle', 'focused', 'success', 'error'] },
   disabled: { type: 'boolean', label: 'Disabled', defaultValue: false },
 });
 

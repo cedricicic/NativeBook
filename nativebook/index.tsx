@@ -26,7 +26,7 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   const { isOpen, setIsOpen, selectedComponent, setSelectedComponent, components, knobs } = useNativeBookStore();
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   
-  // Laging state to allow for unmount animations
+  // Local state to manage transition unmounts
   const [activePreview, setActivePreview] = useState<string | null>(null);
   const transitionAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,10 +65,8 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
     })
   ).current;
 
-  // Handle transitions between Demo Screen and Component Preview
   useEffect(() => {
     if (selectedComponent && showTrigger) {
-      // Transitioning IN to preview
       setActivePreview(selectedComponent);
       Animated.spring(transitionAnim, {
         toValue: 1,
@@ -77,7 +75,6 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
         friction: 8,
       }).start();
     } else {
-      // Transitioning OUT to demo screen
       Animated.timing(transitionAnim, {
         toValue: 0,
         duration: 350,
@@ -89,9 +86,9 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   }, [selectedComponent, showTrigger, transitionAnim]);
 
   const PreviewComponent = (() => {
-    const compName = activePreview || selectedComponent;
-    if (!compName) return null;
-    const item = components[compName];
+    const name = activePreview || selectedComponent;
+    if (!name) return null;
+    const item = components[name];
     if (!item) return null;
     
     const Component = item.component;
@@ -129,7 +126,6 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        {/* Children (Demo Page) */}
         <Animated.View style={[styles.flex, { 
           opacity: childrenOpacity,
           transform: [{ scale: childrenScale }]
@@ -137,7 +133,6 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
           {children}
         </Animated.View>
 
-        {/* Preview Level */}
         {(activePreview || selectedComponent) && (
           <Animated.View 
             style={[
@@ -159,7 +154,6 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
               ))}
             </View>
 
-            {/* Back Button */}
             <Pressable 
               style={styles.previewBackButton}
               onPress={() => setSelectedComponent(null)}
@@ -180,7 +174,6 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
           </Animated.View>
         )}
 
-        {/* Floating Trigger Button */}
         {(showTrigger || selectedComponent || activePreview) && !isOpen && (
           <Animated.View
             style={[styles.trigger, { transform: pan.getTranslateTransform() }]}

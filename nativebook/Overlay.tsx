@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: 120,
   },
   section: {
     marginBottom: 22,
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   panelScrollContent: {
-    paddingBottom: 28,
+    paddingBottom: 150,
   },
   knobRow: {
     marginBottom: 22,

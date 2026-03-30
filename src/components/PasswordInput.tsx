@@ -1,12 +1,23 @@
-import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+
+export type InputState = 'idle' | 'focused' | 'error' | 'success';
 
 interface PasswordInputProps {
   label?: string;
   placeholder?: string;
   value?: string;
   disabled?: boolean;
+  state?: InputState;
 }
 
 function EyeIcon({ size = 20, color = '#6b7280' }: { size?: number; color?: string }) {
@@ -35,25 +46,64 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   placeholder = 'Enter your password',
   value = '',
   disabled = false,
+  state: externalState,
 }) => {
+  const [internalFocused, setInternalFocused] = useState(false);
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+  
+  const borderFade = useRef(new Animated.Value(0)).current;
+
+  const currentState: InputState = externalState || (internalFocused ? 'focused' : 'idle');
+
+  useEffect(() => {
+    let toValue = 0;
+    if (currentState === 'focused') toValue = 1;
+    if (currentState === 'success') toValue = 2;
+    if (currentState === 'error') toValue = 3;
+
+    Animated.timing(borderFade, {
+      toValue,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [currentState, borderFade]);
+
+  const borderColor = borderFade.interpolate({
+    inputRange: [0, 1, 2, 3],
+    outputRange: ['#d1d5db', '#000000', '#16a34a', '#dc2626'],
+  });
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
+      <Animated.View
+        style={[
+          styles.inputWrapper,
+          { borderColor },
+          disabled && styles.inputDisabled,
+        ]}
+      >
         <TextInput
-          style={[styles.input, disabled && styles.inputDisabled]}
+          style={styles.input}
           placeholder={placeholder}
           placeholderTextColor="#9ca3af"
-          secureTextEntry
+          secureTextEntry={secureTextEntry}
           autoCapitalize="none"
           autoCorrect={false}
           editable={!disabled}
           value={value}
+          onFocus={() => setInternalFocused(true)}
+          onBlur={() => setInternalFocused(false)}
         />
-        <View style={styles.eyeButton}>
-          <EyeIcon size={20} color="#6b7280" />
-        </View>
-      </View>
+        
+        <TouchableOpacity 
+          style={styles.eyeButton} 
+          onPress={() => setSecureTextEntry(!secureTextEntry)}
+        >
+          <EyeIcon size={20} color={currentState === 'focused' ? '#000000' : '#6b7280'} />
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 };
@@ -61,6 +111,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -69,29 +120,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   inputWrapper: {
-    position: 'relative' as const,
+    borderWidth: 1,
+    borderRadius: 8,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingRight: 48,
+    flex: 1,
     fontSize: 16,
     color: '#000000',
-    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    margin: 0,
   },
   inputDisabled: {
     backgroundColor: '#f3f4f6',
-    color: '#9ca3af',
+    opacity: 0.5,
   },
   eyeButton: {
-    position: 'absolute' as const,
-    right: 16,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center' as const,
     padding: 4,
+    marginLeft: 8,
   },
 });
