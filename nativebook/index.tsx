@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -25,6 +25,10 @@ const GRID_ROWS = 24;
 export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children, showTrigger = true }) => {
   const { isOpen, setIsOpen, selectedComponent, setSelectedComponent, components, knobs } = useNativeBookStore();
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
+  
+  // Laging state to allow for unmount animations
+  const [activePreview, setActivePreview] = useState<string | null>(null);
+  const transitionAnim = useRef(new Animated.Value(0)).current;
 
   const pan = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH - 76, y: SCREEN_HEIGHT - 140 })).current;
   const dragStart = useRef({ x: SCREEN_WIDTH - 76, y: SCREEN_HEIGHT - 140 });
@@ -61,9 +65,33 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
     })
   ).current;
 
+  // Handle transitions between Demo Screen and Component Preview
+  useEffect(() => {
+    if (selectedComponent && showTrigger) {
+      // Transitioning IN to preview
+      setActivePreview(selectedComponent);
+      Animated.spring(transitionAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 8,
+      }).start();
+    } else {
+      // Transitioning OUT to demo screen
+      Animated.timing(transitionAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start(() => {
+        setActivePreview(null);
+      });
+    }
+  }, [selectedComponent, showTrigger, transitionAnim]);
+
   const PreviewComponent = (() => {
-    if (!selectedComponent) return null;
-    const item = components[selectedComponent];
+    const compName = activePreview || selectedComponent;
+    if (!compName) return null;
+    const item = components[compName];
     if (!item) return null;
     
     const Component = item.component;
@@ -78,11 +106,46 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
     });
   };
 
+  const previewOpacity = transitionAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const previewTranslateY = transitionAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [20, 0],
+  });
+
+  const childrenOpacity = transitionAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
+
+  const childrenScale = transitionAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.98],
+  });
+
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        {selectedComponent && showTrigger ? (
-          <View style={styles.previewContainer}>
+        {/* Children (Demo Page) */}
+        <Animated.View style={[styles.flex, { 
+          opacity: childrenOpacity,
+          transform: [{ scale: childrenScale }]
+        }]}>
+          {children}
+        </Animated.View>
+
+        {/* Preview Level */}
+        {(activePreview || selectedComponent) && (
+          <Animated.View 
+            style={[
+              StyleSheet.absoluteFill, 
+              styles.previewContainer,
+              { opacity: previewOpacity, transform: [{ translateY: previewTranslateY }] }
+            ]}
+          >
             <View style={styles.gridBackground} pointerEvents="none">
               {Array.from({ length: GRID_ROWS }).map((_, rowIndex) => (
                 <View key={`row-${rowIndex}`} style={styles.gridRow}>
@@ -110,17 +173,15 @@ export const NativeBookProvider: React.FC<NativeBookProviderProps> = ({ children
             </View>
             <View style={styles.previewLabel}>
               <Text style={styles.previewLabelText}>
-                {selectedComponent}.tsx — {previewSize.width || Math.round(SCREEN_WIDTH * 0.72)}x
+                {activePreview || selectedComponent}.tsx — {previewSize.width || Math.round(SCREEN_WIDTH * 0.72)}x
                 {previewSize.height || 60}px
               </Text>
             </View>
-          </View>
-        ) : (
-          children
+          </Animated.View>
         )}
 
         {/* Floating Trigger Button */}
-        {(showTrigger || selectedComponent) && !isOpen && (
+        {(showTrigger || selectedComponent || activePreview) && !isOpen && (
           <Animated.View
             style={[styles.trigger, { transform: pan.getTranslateTransform() }]}
             {...panResponder.panHandlers}
@@ -167,11 +228,11 @@ const styles = StyleSheet.create({
     height: 56,
   },
   previewContainer: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+    zIndex: 100,
   },
   gridBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -219,14 +280,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   previewFrame: {
-    minWidth: '76%',
+    width: '90%',
     minHeight: 120,
     borderWidth: 1,
     borderColor: '#EAEAEA',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     paddingVertical: 28,
     borderRadius: 12,
   },

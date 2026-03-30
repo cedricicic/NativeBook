@@ -164,7 +164,10 @@ export const NativeBookOverlay = () => {
       </Text>
       <TouchableOpacity
         style={[styles.toggleButton, knobs[key] && styles.toggleButtonActive]}
-        onPress={() => updateKnob(key, !knobs[key])}
+        onPress={() => {
+          updateKnob(key, !knobs[key]);
+          setIsOpen(false);
+        }}
       >
         <View style={styles.toggleGlass} />
         <View style={styles.toggleRow}>
@@ -191,7 +194,10 @@ export const NativeBookOverlay = () => {
               <Pressable
                 key={option}
                 style={[styles.selectOption, isActive && styles.selectOptionActive]}
-                onPress={() => updateKnob(key, option)}
+                onPress={() => {
+                  updateKnob(key, option);
+                  setIsOpen(false);
+                }}
               >
                 <View style={styles.selectOptionGlass} />
                 <Text style={[styles.selectOptionText, isActive && styles.selectOptionTextActive]}>
