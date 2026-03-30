@@ -17,7 +17,7 @@ import { useNativeBookStore, KnobDefinition } from './store';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const OVERLAY_HEIGHT = SCREEN_HEIGHT * 0.80;
-const TABS = ['props', 'events', 'docs'] as const;
+const TABS = ['props', 'styles', 'events', 'docs'] as const;
 
 type TabKey = (typeof TABS)[number];
 
@@ -211,6 +211,34 @@ export const NativeBookOverlay = () => {
     );
   };
 
+  const renderStepper = (key: string, label: string, step: number = 2) => {
+    const val = knobs[key] || 0;
+    return (
+      <View style={styles.knobRow} key={key}>
+        <Text style={styles.knobLabel}>
+          {label.toUpperCase()} <Text style={styles.knobType}>NUMBER</Text>
+        </Text>
+        <View style={styles.stepperContainer}>
+          <TouchableOpacity 
+            style={styles.stepperButton}
+            onPress={() => updateKnob(key, Math.max(0, val - step))}
+          >
+            <Text style={styles.stepperButtonText}>-</Text>
+          </TouchableOpacity>
+          <View style={styles.stepperValueContainer}>
+            <Text style={styles.stepperValue}>{val}px</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.stepperButton}
+            onPress={() => updateKnob(key, val + step)}
+          >
+            <Text style={styles.stepperButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderKnobControl = (key: string, def: KnobDefinition) => {
     switch (def.type) {
       case 'text':
@@ -241,6 +269,29 @@ export const NativeBookOverlay = () => {
         {Object.entries(knobDefs).map(([key, def]) =>
           renderKnobControl(key, def)
         )}
+      </View>
+    );
+  };
+
+  const renderStylesTab = () => {
+    return (
+      <View style={styles.panelBody}>
+        {renderStepper('layout_fontSize', 'Font Size', 1)}
+        {renderStepper('layout_padding', 'Horizontal Padding', 2)}
+        {renderStepper('layout_margin', 'Bottom Margin', 2)}
+        
+        <View style={styles.knobRow}>
+          <Text style={styles.knobLabel}>FONT FAMILY <Text style={styles.knobType}>SYSTEM</Text></Text>
+          <View style={styles.staticField}>
+            <Text style={styles.staticFieldText}>Dela Gothic One, San Francisco</Text>
+          </View>
+        </View>
+
+        <View style={styles.styleHint}>
+          <Text style={styles.styleHintText}>
+            Use layout_ prefixed knobs to fine-tune spacing and typography across your component stages.
+          </Text>
+        </View>
       </View>
     );
   };
@@ -286,8 +337,8 @@ export const NativeBookOverlay = () => {
               if (def.type === 'boolean') return val ? `${key} ` : '';
               if (def.type === 'text') return `${key}="${val}" `;
               return `${key}="${val}" `;
-            }).join('')}
-            {'/>'}
+            }).join('') || ''}
+            {' />'}
           </Text>
         </View>
       </View>
@@ -303,13 +354,6 @@ export const NativeBookOverlay = () => {
           </View>
         ))}
       </View>
-    </View>
-  );
-
-  const renderPlaceholder = (title: string, description: string) => (
-    <View style={styles.placeholderPanel}>
-      <Text style={styles.placeholderTitle}>{title}</Text>
-      <Text style={styles.placeholderText}>{description}</Text>
     </View>
   );
 
@@ -336,18 +380,6 @@ export const NativeBookOverlay = () => {
         <View style={styles.handleContainer}>
           <View style={styles.handle} />
         </View>
-{/* 
-        {selectedComponent ? (
-          <TouchableOpacity
-            style={styles.sheetBackButton}
-            onPress={() => {
-              setSelectedComponent(null);
-              setIsOpen(false);
-            }}
-          >
-            <Text style={styles.sheetBackButtonText}>‹ Back</Text>
-          </TouchableOpacity>
-        ) : null} */}
 
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
@@ -430,9 +462,11 @@ export const NativeBookOverlay = () => {
 
                 {activeTab === 'props'
                   ? renderPropsTab()
+                  : activeTab === 'styles'
+                  ? renderStylesTab()
                   : activeTab === 'events'
-                    ? renderEventsTab()
-                    : renderDocsTab()}
+                  ? renderEventsTab()
+                  : renderDocsTab()}
               </ScrollView>
             </View>
           )}
@@ -481,17 +515,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 18,
-  },
-  sheetBackButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  sheetBackButtonText: {
-    color: '#888888',
-    fontSize: 13,
-    letterSpacing: 0.2,
   },
   searchContainer: {
     flex: 1,
@@ -776,6 +799,64 @@ const styles = StyleSheet.create({
   },
   toggleButtonTextActive: {
     color: '#FFFFFF',
+  },
+
+  // ─── Stepper for Styles ───
+  stepperContainer: {
+    flexDirection: 'row',
+    height: 46,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    overflow: 'hidden',
+  },
+  stepperButton: {
+    width: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  stepperButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '300',
+  },
+  stepperValueContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  stepperValue: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  staticField: {
+    height: 46,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  staticFieldText: {
+    color: '#555555',
+    fontSize: 13,
+    letterSpacing: -0.2,
+  },
+  styleHint: {
+    paddingTop: 12,
+    paddingHorizontal: 4,
+  },
+  styleHintText: {
+    color: '#333333',
+    fontSize: 11,
+    fontStyle: 'italic',
   },
 
   // ─── Events Tab ───

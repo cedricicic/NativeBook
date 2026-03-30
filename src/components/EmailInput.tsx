@@ -16,6 +16,10 @@ interface EmailInputProps {
   value?: string;
   disabled?: boolean;
   state?: InputState;
+  // Global Layout Knobs
+  layout_padding?: number;
+  layout_fontSize?: number;
+  layout_margin?: number;
 }
 
 export const EmailInput: React.FC<EmailInputProps> = ({
@@ -24,6 +28,9 @@ export const EmailInput: React.FC<EmailInputProps> = ({
   value = '',
   disabled = false,
   state: externalState,
+  layout_padding,
+  layout_fontSize,
+  layout_margin,
 }) => {
   const [internalFocused, setInternalFocused] = useState(false);
   const borderFade = useRef(new Animated.Value(0)).current;
@@ -50,17 +57,24 @@ export const EmailInput: React.FC<EmailInputProps> = ({
   });
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.container, layout_margin !== undefined && { marginBottom: layout_margin }]}>
+      <Text style={[
+        styles.label,
+        layout_fontSize !== undefined && { fontSize: Math.max(10, layout_fontSize - 2) }
+      ]}>{label}</Text>
       <Animated.View
         style={[
           styles.inputWrapper,
           { borderColor },
           disabled && styles.inputDisabled,
+          layout_padding !== undefined && { paddingHorizontal: layout_padding }
         ]}
       >
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            layout_fontSize !== undefined && { fontSize: layout_fontSize }
+          ]}
           placeholder={placeholder}
           placeholderTextColor="#9ca3af"
           keyboardType="email-address"

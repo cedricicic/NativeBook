@@ -194,8 +194,8 @@ function AppContent() {
             <Text style={styles.title}>NativeBook</Text>
             <View style={styles.titleRule} />
             <Text style={styles.subtitle}>
-              High-contrast component staging, rapid prop iteration, and a
-              bottom-drawer explorer built for native iOS workflows.
+              Component staging, rapid prop iteration, and a
+              bottom drawer explorer built for native iOS workflows.
             </Text>
           </View>
 

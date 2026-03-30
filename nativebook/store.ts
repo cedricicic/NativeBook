@@ -31,7 +31,11 @@ export const useNativeBookStore = create<NativeBookStore>((set) => ({
     // When selecting a component, initialize knobs from its definitions
     set((state) => {
       const registration = component ? state.components[component] : null;
-      const initialKnobs: Record<string, any> = {};
+      const initialKnobs: Record<string, any> = {
+        layout_padding: 16,
+        layout_margin: 0,
+        layout_fontSize: 16,
+      };
       if (registration?.knobDefs) {
         Object.entries(registration.knobDefs).forEach(([key, def]) => {
           initialKnobs[key] = def.defaultValue;

@@ -16,6 +16,10 @@ interface SignInButtonProps {
   disabled?: boolean;
   state?: SignInButtonState;
   onPress?: () => void;
+  // Global Layout Knobs (from NativeBook Styles tab)
+  layout_padding?: number;
+  layout_fontSize?: number;
+  layout_margin?: number;
 }
 
 export const SignInButton: React.FC<SignInButtonProps> = ({
@@ -23,6 +27,9 @@ export const SignInButton: React.FC<SignInButtonProps> = ({
   disabled = false,
   state = 'idle',
   onPress,
+  layout_padding,
+  layout_fontSize,
+  layout_margin,
 }) => {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -30,7 +37,6 @@ export const SignInButton: React.FC<SignInButtonProps> = ({
 
   useEffect(() => {
     if (state === 'error') {
-      // Shake animation for error
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
         Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
@@ -78,6 +84,7 @@ export const SignInButton: React.FC<SignInButtonProps> = ({
       style={[
         { transform: [{ translateX: shakeAnim }, { scale: scaleAnim }] },
         styles.wrapper,
+        layout_margin !== undefined && { marginBottom: layout_margin },
       ]}
     >
       <TouchableOpacity
@@ -86,14 +93,29 @@ export const SignInButton: React.FC<SignInButtonProps> = ({
         activeOpacity={0.8}
         disabled={disabled || isLoading}
       >
-        <Animated.View style={[styles.button, { backgroundColor }]}>
+        <Animated.View 
+          style={[
+            styles.button, 
+            { backgroundColor },
+            layout_padding !== undefined && { paddingHorizontal: layout_padding }
+          ]}
+        >
           {isLoading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color="#ffffff" />
-              <Text style={styles.loadingText}>Signing in...</Text>
+              <Text style={[
+                styles.loadingText,
+                layout_fontSize !== undefined && { fontSize: layout_fontSize }
+              ]}>
+                Signing in...
+              </Text>
             </View>
           ) : (
-            <Text style={[styles.text, disabled && styles.textDisabled]}>
+            <Text style={[
+              styles.text, 
+              disabled && styles.textDisabled,
+              layout_fontSize !== undefined && { fontSize: layout_fontSize }
+            ]}>
               {displayLabel}
             </Text>
           )}
